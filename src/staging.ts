@@ -45,7 +45,6 @@ export class Staging {
   }
 
   /**
-// Suggested code may be subject to a license. Learn more: ~LicenseLog:1208822394.
    * Appends payloads to the staging sheet
    * @param measurementProtocolPayloads
    */
@@ -58,7 +57,6 @@ export class Staging {
   }
 
   /**
-// Suggested code may be subject to a license. Learn more: ~LicenseLog:420239116.
    * Validates payloads in the staging sheet
    * @param stream
    */
@@ -80,7 +78,6 @@ export class Staging {
   }
 
   /**
-// Suggested code may be subject to a license. Learn more: ~LicenseLog:134445234.
    * Sends the payloads in the staging sheet
    * @param stream
    */

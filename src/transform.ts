@@ -119,43 +119,28 @@ export function transform(
 
   for (let row = 0; row < inputData.length; row++) {
     const rawRow: DataValue[] = inputData.getRawRow(row);
-    const isUnknownPayload = !payloadCollector.hasPayloadForRow(rawRow);
     const payload = payloadCollector.getOrCreatePayloadForRow(rawRow);
-    if (isUnknownPayload) {
-      if (eventName) {
-        payload.setEventName(eventName);
-      }
-      const eventMappings = dataMapping.getEventMappings();
-      for (const { targetPath, sourceColumn } of eventMappings.getEntries()) {
-        const schemaEntry =
-          measurementProtocolSchema.getEntryForPath(targetPath);
-        if (!schemaEntry) {
-          continue;
-        }
-        const inputValue: DataValue = inputData.getValue(sourceColumn, row)!;
-        const outputValue = schemaEntry.getSchemaConformantValue(inputValue);
-        if (outputValue === undefined) {
-          continue;
-        }
-        payload.setValueOnPath(targetPath, outputValue);
-      }
+    payload.addItem();
+    if (eventName) {
+      payload.setEventName(eventName);
     }
-    const itemMappings = dataMapping.getItemMappings();
-    if (itemMappings.getSize()) {
-      payload.addItem();
-      for (const { targetPath, sourceColumn } of itemMappings.getEntries()) {
-        const schemaEntry =
-          measurementProtocolSchema.getEntryForPath(targetPath);
-        if (!schemaEntry) {
-          continue;
-        }
-        const inputValue = inputData.getValue(sourceColumn, row)!;
-        const outputValue = schemaEntry.getSchemaConformantValue(inputValue);
-        if (outputValue === undefined) {
-          continue;
-        }
-        payload.setValueOnPath(targetPath, outputValue);
+    const mappings = dataMapping.getMappings();
+    for (const { targetPath, sourceColumn } of mappings.getEntries()) {
+      console.log(targetPath);
+      const schemaEntry = measurementProtocolSchema.getEntryForPath(targetPath);
+      if (!schemaEntry) {
+        continue;
       }
+      const inputValue = inputData.getValue(sourceColumn, row);
+      if (inputValue === undefined) {
+        continue;
+      }
+      const outputValue = schemaEntry.getSchemaConformantValue(inputValue);
+      if (outputValue === undefined) {
+        continue;
+      }
+      console.log(`Setting "${targetPath}" to "${outputValue}".`);
+      payload.setValueOnPath(targetPath, outputValue);
     }
   }
   return payloadCollector.toPayloadList();

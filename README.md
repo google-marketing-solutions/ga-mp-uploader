@@ -59,7 +59,11 @@ As use is at your own risk, it makes sense to first understand the Apps Script c
 
 # Deployment
 
-GA MP Uploader is fully contained in [this](...) Google Sheets document: it is a template of the required spreadsheet structure but also contains the Apps Script code providing the actual upload functionality. Hence, duplicating the template is "deployment" enough.
+## Deploying to use the tool
+
+GA MP Uploader is fully contained in [this](https://docs.google.com/spreadsheets/d/1FYWiFKEjqahV4fsf5wbHnvNDA6ijkL6Pb_s4vVceLVY/edit?usp=sharing) Google Sheets document: it is a template of the required spreadsheet structure but also contains the Apps Script code providing the actual upload functionality. Hence, for mere usage, duplicating the template is "deployment" enough.
+
+## Deploying for further development
 
 While the code in the template can be modified, it is one long file without comments, and hence not overly suitable for further development. Instead, you can do the following:
 
@@ -81,6 +85,8 @@ While the schema enforced for data sent by Measurement Protocol is predefined by
 To see what is allowed, you can check the [payload](https://developers.google.com/analytics/devguides/collection/protocol/ga4/reference?client_type=firebase#payload) documentation here, which contains links to further details, e.g. to [this page](https://developers.google.com/analytics/devguides/collection/protocol/ga4/reference/events) listing which fields are allowed inside an _event_ to be uploaded. By default, the template assumes that [_purchase_](https://developers.google.com/analytics/devguides/collection/protocol/ga4/reference/events#purchase) events are to be transmitted (see _Event name_ in [Base Configuration](#base-configuration)).
 
 For verification of an example payload, you can use the [Event Builder](https://ga-dev-tools.google/ga4/event-builder/).
+
+> **Note**: The schema listing does not provide information on relationships between values, like the fact that "items" is an array that allows for several products to be reported, or "address" is also one allowing for several addresses.
 
 ## User Configuration
 
@@ -114,3 +120,7 @@ For a one-time test, you would
 For regular use, you need to set up a process that automates all these steps. (The code could be modified to not need the validation, which is mainly useful for testing during setup.) The automation of staging and sending can be achieved with [installable triggers](https://developers.google.com/apps-script/guides/triggers/installable) using the functions `stageData` and `sendStagedData`.
 
 > **Note**: When testing, ensure you use a different transaction ID each time, as GA will otherwise consider it redundant to what was already reported.
+
+> **Note**: Some user data is expected in a specific hashes format by GA, the conversion to which the tool performs, but it is worth reviewing this before production use to ensure consistent values.
+
+> **Note**: The tool allows supports several items to be reported for the same purchase, simply by repeating the record with different product information. User data, however, is only supported in a restricted form: while it is possible to supply different phone numbers and email addresses in each product record, the postal address must be the same in all records. In a production implementation, one would not keep user data in the list of purchased items, anyway.

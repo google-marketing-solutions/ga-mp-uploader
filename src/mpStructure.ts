@@ -18,6 +18,10 @@ import { DataValue } from './inputData';
 
 export const MeasurementProtocolPaths = {
   item: 'events.params.items',
+  // event: 'events',
+  userProperties: 'user_properties',
+  userData: 'user_data',
+  userAddress: 'user_data.address',
   eventName: 'events.name',
   transactionId: 'events.params.transaction_id',
 };
@@ -27,8 +31,9 @@ type Payload = {
   client_id?: string; // ultimately required
   user_id?: string;
   non_personalized_ads?: boolean;
-  userProperties?: UserProperties;
+  user_properties?: UserProperties;
   app_instance_id?: string;
+  user_data?: UserData;
 };
 
 type Event = {
@@ -56,6 +61,24 @@ type EventParamsItem = {
 
 type UserProperties = {
   [key: string]: { [key: string]: DataValue };
+};
+
+type UserData = {
+  sha256_email_address?: string[];
+  sha256_phone_number?: string[];
+  address?: UserAddress[];
+};
+
+type UserContactInfo = Omit<UserData, 'address'>;
+
+type UserAddress = {
+  sha256_first_name?: string;
+  sha256_last_name?: string;
+  sha256_street?: string;
+  city?: string;
+  region?: string;
+  postal_code?: string;
+  country?: string;
 };
 
 export type StreamResponse = { responseCode: number; responseText: string };
@@ -135,6 +158,52 @@ export class MeasurementProtocolSchemaEntry {
     }
   }
 
+  static sha256HexString(value: string): string {
+    return Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, value)
+      .map(byte => {
+        const v = byte < 0 ? 256 + byte : byte;
+        return ('0' + v.toString(16)).slice(-2);
+      })
+      .join('');
+  }
+
+  /**
+   * Canonicalises an email address to the format expected by the GA MP.
+   * @param address
+   * @returns
+   */
+  static encodeEmailAddress(address: string) {
+    address = address
+      .toLowerCase()
+      .replace(/\.(?=[^@]*@(?:gmail\.com|googlemail\.com))/g, '')
+      .replace(/\s/g, '');
+    return this.sha256HexString(address);
+  }
+
+  /**
+   * Canonicalises a phone number to the format expected by the GA MP.
+   * @param address
+   * @returns
+   */
+  static encodePhoneNumber(number: string) {
+    number = '+' + number.replace(/\D/g, '');
+    return this.sha256HexString(number);
+  }
+
+  /**
+   * Canonicalises a name or street address to the format expected by the GA MP.
+   * @param string
+   * @param removeDigits
+   * @returns
+   */
+  static encodeName(name: string, removeDigits: boolean = false) {
+    if (removeDigits) {
+      name = name.replace(/[0-9\W_]/g, '');
+    }
+    name = name.toLowerCase().trim();
+    return this.sha256HexString(name);
+  }
+
   /**
    * Gets the value GA MP expects for a given input value.
    * @param value
@@ -189,15 +258,6 @@ export class MeasurementProtocolSchema {
       .filter(row => row[0] !== '')
       .map(row => new MeasurementProtocolSchemaEntry(row[0], row[1], row[2]));
     return new MeasurementProtocolSchema(schemaEntries);
-  }
-
-  /**
-   * Checks if the given path is one for event parameter items in the GA MP payload hierarchy.
-   * @param path
-   * @returns
-   */
-  static isItemPath(path: string): boolean {
-    return path.startsWith(MeasurementProtocolPaths.item + '.');
   }
 }
 
@@ -268,10 +328,34 @@ export class MeasurementProtocolPayload {
    */
   _getUserPropertiesData(): UserProperties {
     const payload = this._payloadData;
-    if (!('userProperties' in payload)) {
-      payload['userProperties'] = {};
+    if (!('user_properties' in payload)) {
+      payload['user_properties'] = {};
     }
-    return payload['userProperties']!;
+    return payload['user_properties']!;
+  }
+
+  /**
+   * Gets the user data in this payload.
+   * @returns the payload's user data if existing, otherwise an empty object
+   */
+  _getUserData(): UserData {
+    const payload = this._payloadData;
+    if (!('user_data' in payload)) {
+      payload['user_data'] = {} as UserData;
+    }
+    return payload['user_data']!;
+  }
+
+  /**
+   * Gets the address in this payload.
+   * @returns the payload's user address if existing, otherwise an empty object
+   */
+  _getAddress(): UserAddress[] {
+    const userData = this._getUserData();
+    if (!('address' in userData)) {
+      userData['address'] = [{} as UserAddress];
+    }
+    return userData['address']!;
   }
 
   /**
@@ -333,9 +417,50 @@ export class MeasurementProtocolPayload {
           }
           break;
         }
-        case 'userProperties': {
+        case 'user_properties': {
           const userProperties = this._getUserPropertiesData();
           userProperties[targetProperty as keyof Payload] = { value: value };
+          break;
+        }
+        case 'user_data': {
+          const userData = this._getUserData();
+          const property = targetProperty as keyof UserContactInfo;
+          let newValue = value as string;
+          switch (property) {
+            case 'sha256_email_address':
+              newValue =
+                MeasurementProtocolSchemaEntry.encodeEmailAddress(newValue);
+              break;
+            case 'sha256_phone_number':
+              newValue =
+                MeasurementProtocolSchemaEntry.encodePhoneNumber(newValue);
+              break;
+          }
+          userData[property] = userData[property] || [];
+          const uniqueValues = new Set(userData[property]);
+          uniqueValues.add(newValue);
+          userData[property] = [...uniqueValues];
+          break;
+        }
+        case 'address': {
+          const address = this._getAddress();
+          if (address && address.length > 0) {
+            const property = targetProperty as keyof UserAddress;
+            let newValue = value as string;
+            switch (property) {
+              case 'sha256_first_name':
+              case 'sha256_last_name':
+                newValue = MeasurementProtocolSchemaEntry.encodeName(newValue);
+                break;
+              case 'sha256_street':
+                newValue = MeasurementProtocolSchemaEntry.encodeName(
+                  newValue,
+                  true
+                );
+                break;
+            }
+            address[0][property] = newValue;
+          }
           break;
         }
         default: // !! ??

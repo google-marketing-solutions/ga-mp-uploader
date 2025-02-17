@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-import { MeasurementProtocolSchema } from './mpStructure';
-
 type FieldMapping = {
   sourceColumn: string;
   targetPath: string;
@@ -28,6 +26,9 @@ export class DataMapping {
   _reverseLookup: Map<string, FieldMapping>;
   _eventMappings: DataMapping | undefined;
   _itemMappings: DataMapping | undefined;
+  _userPropertiesMappings: DataMapping | undefined;
+  _userDataMappings: DataMapping | undefined;
+  _userAddressMappings: DataMapping | undefined;
 
   /**
    * @param entries mapping from data-source columns to GA MP properties
@@ -77,33 +78,11 @@ export class DataMapping {
   }
 
   /**
-   * Gets the mapping for event properties.
-   * @returns the events mapping
+   * Gets the whole mapping.
+   * @returns the mapping
    */
-  getEventMappings(): DataMapping {
-    if (!this._eventMappings) {
-      this._eventMappings = new DataMapping(
-        this.getEntries().filter(
-          ({ targetPath }) => !MeasurementProtocolSchema.isItemPath(targetPath)
-        )
-      );
-    }
-    return this._eventMappings;
-  }
-
-  /**
-   * Gets the mapping for item properties.
-   * @returns the items mapping
-   */
-  getItemMappings(): DataMapping {
-    if (!this._itemMappings) {
-      this._itemMappings = new DataMapping(
-        this.getEntries().filter(({ targetPath }) =>
-          MeasurementProtocolSchema.isItemPath(targetPath)
-        )
-      );
-    }
-    return this._itemMappings;
+  getMappings() {
+    return new DataMapping(this.getEntries());
   }
 
   /**
